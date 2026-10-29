@@ -1,0 +1,22 @@
+# Local settings, credentials, machine diagnostics and generated output.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.log
+*.zip
+*.tar.gz
+config.json
+ui-config.json
+.local/
+private/
+test-results/
+playwright-report/
+node_modules/
+__pycache__/
+*.py[cod]
+.venv/
+.DS_Store

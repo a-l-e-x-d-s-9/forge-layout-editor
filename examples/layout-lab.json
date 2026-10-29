@@ -1,0 +1,30 @@
+{
+  "width": 768,
+  "height": 512,
+  "bbox_coord_space": "abs",
+  "bbox_format": "xyxy",
+  "summary": {
+    "caption": "A clean minimalist studio poster on a seamless warm ivory background. A single red cube stands on the left and a single blue sphere stands on the right, resting on the same matte surface, separated by generous empty space. Soft studio lighting and subtle contact shadows. Large dark navy typography at the top reads LAYOUT LAB.",
+    "meta": ["studio photography", "poster"],
+    "canvas": "single",
+    "palette": ["ivory", "red", "blue", "navy"]
+  },
+  "items": [
+    {
+      "label": "object",
+      "caption": "One glossy red cube with straight sharp edges on the left, resting on the ivory surface, three-quarter view with a soft contact shadow.",
+      "bbox": [56, 152, 328, 464]
+    },
+    {
+      "label": "object",
+      "caption": "One smooth cobalt blue sphere on the right, resting on the ivory surface, with a soft contact shadow and a gentle studio highlight.",
+      "bbox": [432, 152, 712, 464]
+    },
+    {
+      "label": "text",
+      "caption": "Large bold dark navy sans-serif uppercase title centered across the top, crisp and clearly legible, no backing panel.",
+      "text": "LAYOUT LAB",
+      "bbox": [128, 32, 640, 128]
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forge Layout Editor · Forge Neo</title><link rel="stylesheet" href="../style.css">
+<style>body{margin:0;background:#18181b;font-family:system-ui}#standalone-editor{position:relative;margin:12px;width:calc(100% - 24px);height:auto}</style>
+</head><body><div id="standalone-editor"></div>
+<script src="../javascript/00-le-model.js"></script><script src="../javascript/01-le-formats.js"></script>
+<script src="../javascript/02-le-validate.js"></script><script src="../javascript/03-le-editor.js"></script>
+<script>window.layoutEditor = new LayoutEditor.Editor(document.getElementById('standalone-editor'), {applyLabel:'Copy prompt',onApply(){window.layoutEditor.copyPrompt();}});</script>
+</body></html>

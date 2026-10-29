@@ -1,0 +1,16 @@
+{
+  "name": "forge-layout-editor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A visual layout prompt editor for Forge Neo with movable panels and model format profiles.",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test tests/formats.test.cjs",
+    "test:workspace": "node tests/browser-workspace.cjs",
+    "test:ui": "node tests/browser-ui.cjs",
+    "test:generation": "node tests/browser-generation.cjs",
+    "check:privacy": "python3 tools/check_public_tree.py"
+  },
+  "engines": { "node": ">=20" },
+  "devDependencies": { "playwright": "^1.64.1" }
+}

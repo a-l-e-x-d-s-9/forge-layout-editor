@@ -1,0 +1,87 @@
+const {chromium} = require('playwright');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const root=require('node:path').resolve(__dirname,'..');
+const artifacts=require('node:path').join(root,'test-results');
+fs.mkdirSync(artifacts,{recursive:true});
+const forgeUrl=process.env.FORGE_URL || 'http://127.0.0.1:7865';
+const draft=JSON.parse(fs.readFileSync(root+'/examples/layout-lab.json','utf8'));
+(async()=>{
+ const browser=await chromium.launch({executablePath:process.env.CHROME_PATH || undefined,headless:true,args:['--no-sandbox']});
+ const page=await browser.newPage({viewport:{width:1600,height:1100}});
+ const errors=[]; page.on('pageerror',e=>errors.push(e.stack));
+ page.on('console',m=>{if(m.type()==='error'&&m.text().includes('[Forge Layout Editor]')) console.log(m.text());});
+ await page.goto(forgeUrl,{waitUntil:'domcontentloaded',timeout:120000});
+ await page.waitForFunction(()=>!!window.forgeLayoutEditor,{timeout:120000});
+ await page.getByRole('tab',{name:'Forge Layout Editor',exact:true}).click();
+ const editor=page.locator('#forge-layout-editor');
+ await editor.locator('.le-json summary').click();
+ await editor.locator('.le-json textarea').fill(JSON.stringify(draft));
+ await page.waitForFunction(()=>window.forgeLayoutEditor.editor.model.items.length===3);
+ assert.equal(await editor.locator('.le-scene textarea').inputValue(),draft.summary.caption);
+ console.log('PASS draft paste: canvas, 3 boxes, captions');
+ await editor.locator('.le-json summary').click();
+ // Draw a new object in empty space; exercise pointer events and native undo/redo.
+ await editor.getByRole('button',{name:'Object',exact:true}).click();
+ const stage=await editor.locator('.le-stage').boundingBox();
+ await page.mouse.move(stage.x+stage.width*.45,stage.y+stage.height*.38);
+ await page.mouse.down(); await page.mouse.move(stage.x+stage.width*.55,stage.y+stage.height*.65,{steps:8}); await page.mouse.up();
+ assert.equal(await page.evaluate(()=>window.forgeLayoutEditor.editor.model.items.length),4);
+ await editor.locator('.le-stage-wrap').focus();
+ await page.keyboard.press('Control+z');
+ assert.equal(await page.evaluate(()=>window.forgeLayoutEditor.editor.model.items.length),3);
+ await page.keyboard.press('Control+Shift+z');
+ assert.equal(await page.evaluate(()=>window.forgeLayoutEditor.editor.model.items.length),4);
+ await page.keyboard.press('Control+z');
+ console.log('PASS draw / undo / redo');
+ // Block an empty-caption box before submission.
+ await page.evaluate(()=>{const e=window.forgeLayoutEditor.editor;e.model.items[0].caption='';e.changed();});
+ await editor.getByRole('button',{name:'Send to txt2img',exact:true}).click();
+ assert.match(await editor.locator('.le-toast').textContent(),/empty caption/);
+ await page.evaluate(d=>window.forgeLayoutEditor.editor.importPrompt(JSON.stringify(d)),draft);
+ console.log('PASS invalid layout blocked');
+ // Transfer through the native Gradio controls and load it back.
+ await editor.getByRole('button',{name:'Send to txt2img',exact:true}).click();
+ let sent=await page.evaluate(()=>({prompt:document.querySelector('#txt2img_prompt textarea').value,width:document.querySelector('#txt2img_width input').value,height:document.querySelector('#txt2img_height input').value}));
+ assert.equal(sent.width,'768');assert.equal(sent.height,'512');
+ assert.equal(JSON.parse(sent.prompt).bbox_coord_space,'abs_centralized');
+ const dynamic=page.locator('#tab_txt2img [id="sddp-dynamic-prompts-enabled"] input');
+ if(await dynamic.count())assert.equal(await dynamic.isChecked(),false);
+ await page.getByRole('tab',{name:'Forge Layout Editor',exact:true}).click();
+ await editor.getByRole('button',{name:'Load txt2img',exact:true}).click();
+ assert.equal(await page.evaluate(()=>window.forgeLayoutEditor.editor.model.items.length),3);
+ await editor.getByRole('button',{name:'Send to img2img',exact:true}).click();
+ assert.equal(await page.locator('#img2img_width input[type=number]').inputValue(),'768');
+ await page.getByRole('tab',{name:'Forge Layout Editor',exact:true}).click();
+ console.log('PASS native txt2img and img2img transfer / import');
+ // Named save through the UI, then browser autosave survives reload.
+ page.once('dialog',async dialog=>dialog.accept('Layout Lab test'));
+ await editor.getByRole('button',{name:'Layouts ▾',exact:true}).click();
+ await editor.getByRole('button',{name:'Save as…',exact:true}).click();
+ await page.reload({waitUntil:'domcontentloaded'});
+ await page.waitForFunction(()=>!!window.forgeLayoutEditor);
+ await page.getByRole('tab',{name:'Forge Layout Editor',exact:true}).click();
+ assert.equal(await page.evaluate(()=>window.forgeLayoutEditor.editor.model.items.length),3);
+ console.log('PASS named save / reload autosave');
+ // Draft download is portable and retains its canvas and metadata.
+ const downloaded=page.waitForEvent('download');
+ await editor.getByRole('button',{name:'Save draft',exact:true}).click();
+ const download=await downloaded;
+ const saved=JSON.parse(fs.readFileSync(await download.path(),'utf8'));
+ assert.equal(saved.width,768);assert.equal(saved.height,512);
+ assert.deepEqual(saved.items,draft.items);assert.deepEqual(saved.summary,draft.summary);
+ await page.locator('#forge-layout-loras').fill('<lora:example:0.8>');
+ await editor.getByRole('button',{name:'Send to txt2img',exact:true}).click();
+ assert.match(await page.locator('#txt2img_prompt textarea').inputValue(),/\n<lora:example:0.8>$/);
+ await page.getByRole('tab',{name:'Forge Layout Editor',exact:true}).click();
+ await editor.getByRole('button',{name:'Load txt2img',exact:true}).click();
+ assert.equal(await page.locator('#forge-layout-loras').inputValue(),'<lora:example:0.8>');
+ await page.locator('#forge-layout-loras').fill('');
+ console.log('PASS portable draft download / LoRA tag transfer');
+ const ownErrors=errors.filter(error=>error.includes('/'+require('node:path').basename(root)+'/javascript/'));
+ assert.deepEqual(ownErrors,[],'the extension must not raise browser errors');
+ // Configure the actual requested generation in the native controls.
+ await page.screenshot({path:artifacts+'/editor-before-generation.png',fullPage:true});
+ fs.writeFileSync(artifacts+'/browser-ui-results.json',JSON.stringify({passed:7,errors},null,2));
+ await browser.close();
+})().catch(e=>{console.error(e);process.exit(1)});
